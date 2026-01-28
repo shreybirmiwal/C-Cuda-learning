@@ -13,13 +13,13 @@ struct Value
     char op; // +, *, /, - etc.
 };
 
-struct Value *createLeafValue(float data);
-void printValue(struct Value *val);
-void backward(struct Value *head);
-
 // operations
+struct Value *createLeafValue(float data);
 struct Value *addValue(struct Value *val1, struct Value *val2);
 struct Value *multiplyValue(struct Value *val1, struct Value *val2);
 
-// clean up
-void freeGraph(struct Value *head);
+void getTopo(struct Value *head, struct Value **topologicalArray, int *size);
+void backward(struct Value **topologicalArray, int size);
+void printValue(struct Value *val);
+void freeGraph(struct Value **topologicalArray, int size);
+void zeroGrad(struct Value **topologicalArray, int size);

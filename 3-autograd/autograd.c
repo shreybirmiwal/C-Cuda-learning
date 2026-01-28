@@ -9,16 +9,20 @@ int main(void)
     struct Value *out = addValue(newVal, val2);
     printValue(out);
 
-    struct Value *topographic = getTopo(out);
+    // build topologicalArray here
+    // a) we need to know how much mem to allocate
+    struct Value **topologicalArray = calloc(3, __SIZEOF_POINTER__); // 3 pointers, 3 calues
+    int size = 0;
+    getTopo(out, topologicalArray, &size);
 
     // backward pass
-    out->grad = 1;
-    backward(out);
+    backward(topologicalArray, size);
 
     printValue(val2);
 
     // clean up
-    freeGraph(out);
+    zeroGrad(topologicalArray, size);
+    freeGraph(topologicalArray, size);
     return 0;
 }
 
@@ -26,6 +30,7 @@ struct Value *createLeafValue(float data)
 {
     struct Value *newValPointer = malloc(sizeof(struct Value));
     newValPointer->data = data;
+    newValPointer->isVisited = 0;
     newValPointer->grad = 0.0;
     newValPointer->isLeaf = 1;
     newValPointer->child1 = NULL;
@@ -63,62 +68,74 @@ struct Value *multiplyValue(struct Value *val1, struct Value *val2)
     return newValPointer;
 }
 
-void getTopo(struct Value *head, struct Value *)
+//  struct Value **topologicalArray is a pointer to a POIINTER OF STRUCT VALUES
+// this means we are pointing to where we have an array of struct value pointers
+void getTopo(struct Value *head, struct Value **topologicalArray, int *size)
 {
-    if (head->isVisited == 1)
+    if (head == NULL || head->isVisited == 1)
     {
         return;
     }
+
+    // get children first
+    getTopo(head->child1, topologicalArray, size);
+    getTopo(head->child2, topologicalArray, size);
+
+    // add this one
+    topologicalArray[*size] = head;
+    *size += 1;
 }
 // sets the children gradients!
-void backward(struct Value *head)
+void backward(struct Value **topologicalArray, int size)
 {
-    // assume head initial gradient is already set to 1
-    // assumes each node is only used 1 time
+    // we have topoligcal array in format: child leaf, child all the way to --> head
+    topologicalArray[size - 1]->grad = 1; // initial gradient has to be set to 1. D-out/D-out = 1
 
-    if (head->op == '\0')
+    for (int i = size - 1; i >= 0; i--)
     {
-        return;
+
+        struct Value *currentNode = topologicalArray[i];
+
+        switch (currentNode->op)
+        {
+        case '\0':
+            break;
+
+        case '+':
+            currentNode->child1->grad += currentNode->grad;
+            currentNode->child2->grad += currentNode->grad;
+            break;
+        case '*':
+            currentNode->child1->grad += (currentNode->child2->data) * currentNode->grad;
+            currentNode->child2->grad += (currentNode->child1->data) * currentNode->grad;
+            break;
+
+        default:
+            break;
+        }
     }
-
-    else if (head->op == '+')
-    {
-        // just pass on grad to children
-        head->child1->grad += head->grad;
-        head->child2->grad += head->grad;
-
-        backward(head->child1);
-        backward(head->child2);
-    }
-
-    else if (head->op == '*')
-    {
-        head->child1->grad += (head->child2->data) * head->grad;
-        head->child2->grad += (head->child1->data) * head->grad;
-
-        backward(head->child1);
-        backward(head->child2);
-    }
-}
-
-void zeroGrad(struct Value *head)
-{
 }
 
 void printValue(struct Value *val)
 {
-    printf("Value\nData: %f\nGrad: %f\nisLeaf: %d\nChild1 Pointer: %p\nChild2 Pointer: %p\nOperation: %c", val->data, val->grad, val->isLeaf, val->child1, val->child2, val->op);
+    printf("\nValue\nData: %f\nGrad: %f\nisLeaf: %d\nChild1 Pointer: %p\nChild2 Pointer: %p\nOperation: %c", val->data, val->grad, val->isLeaf, val->child1, val->child2, val->op);
 }
 
-void freeGraph(struct Value *head)
+void freeGraph(struct Value **topologicalArray, int size)
 {
-    if (head->child1 != NULL)
+    // we want to free the head LAST because then we loose referneces.
+    for (int i = 0; i < size; i++)
     {
-        freeGraph(head->child1);
+        free(topologicalArray[i]); // free expects a pointer. since we have double pointer, [] dereferences 1 pointer so we doing right.
     }
-    if (head->child2 != NULL)
+
+    free(topologicalArray);
+}
+
+void zeroGrad(struct Value **topologicalArray, int size)
+{
+    for (int i = 0; i < size; i++)
     {
-        freeGraph(head->child2);
+        topologicalArray[i]->grad = 0;
     }
-    free(head);
 }
