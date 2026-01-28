@@ -4,6 +4,7 @@ struct Value
 {
     float data;
     float grad; // this is filled on .backward() later
+    char *label;
 
     bool isLeaf;
     // if it's not a leaf, we have to fill these in below
@@ -14,4 +15,10 @@ struct Value
 
 struct Value *createLeafValue(float data);
 void printValue(struct Value *val);
+
+// operations
 struct Value *addValue(struct Value *val1, struct Value *val2);
+struct Value *multiplyValue(struct Value *val1, struct Value *val2);
+
+// clean up
+void freeGraph(struct Value *head);
