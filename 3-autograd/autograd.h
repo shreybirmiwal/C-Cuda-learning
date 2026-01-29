@@ -1,5 +1,38 @@
-#pragma once
 
-// Convenience umbrella header (keeps old includes working).
-#include "node.h"
-#include "graph.h"
+#include <stdbool.h>
+
+// Core scalar value in the autograd graph.
+struct Value
+{
+    float data;
+    float grad; // filled during backward pass
+    bool isLeaf;
+    bool isVisited; // for topological sort
+
+    // If it's not a leaf, we fill these in.
+    struct Value *child1;
+    struct Value *child2;
+    char op; // '+', '*', etc. '\0' for leaf
+};
+
+struct Value *createLeafValue(float data);
+struct Value *addValue(struct Value *val1, struct Value *val2);
+struct Value *multiplyValue(struct Value *val1, struct Value *val2);
+void printValue(struct Value *val);
+
+void getTopo(struct Value *head, struct Value **topologicalArray, int *size);
+void backward(struct Value **topologicalArray, int size);
+void freeGraph(struct Value **topologicalArray, int size);
+void zeroGrad(struct Value **topologicalArray, int size);
+
+// for neural.c
+struct Neuron
+{
+    struct Value **weights;
+    struct Value *bias;
+    struct Value *head_out; // after doing forward pass gets created and saved here
+    int num_inputs;
+};
+
+struct Neuron *createNeuron(int numInputs);
+struct Value *forwardNeuron(struct Neuron *neuron, struct Value **inputs, int size);
